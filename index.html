@@ -1,58 +1,82 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>PSU Smart Chatbot</title>
+    <title>Group Chat & File Share</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <style>
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; background-color: #f4f4f9; display: flex; justify-content: center; }
-        .container { width: 100%; max-width: 600px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        #chat { height: 400px; border: 1px solid #eee; overflow-y: scroll; padding: 15px; margin-bottom: 15px; background: #fafafa; border-radius: 8px; }
-        .controls { display: flex; gap: 10px; }
-        input[type="text"] { padding: 12px; border: 1px solid #ddd; border-radius: 6px; outline: none; }
-        #username { width: 120px; }
-        #message { flex: 1; }
-        button { padding: 10px 25px; cursor: pointer; background-color: #007bff; color: white; border: none; border-radius: 6px; font-weight: bold; }
+        body { font-family: 'Prompt', sans-serif; padding: 20px; 
+        background-image: url('https://cdn.pixabay.com/photo/2018/09/09/12/51/phuket-3664498_1280.jpg') ; 
+        background-size : cover; background-position: center; background-attachment: fixed; 
+        display: flex; justify-content: center; align-items: center; }
+        #chat { height: 350px; border: 1px solid #ccc; overflow-y: scroll; padding: 15px; margin-bottom: 10px; margin-top: 10px ; background: white; border-radius: 8px; }
+        .container { width: 100%; max-width: 600px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);}
+        .controls { display: flex; gap: 10px; flex-wrap: wrap; }
+        input[type="text"] { padding: 10px; flex: 1; border: 1px solid #ddd; border-radius: 4px; }
+        button { padding: 10px 20px; cursor: pointer; background-color: #007bff; color: white; border: none; border-radius: 4px; }
         button:hover { background-color: #0056b3; }
-        .msg-line { margin-bottom: 10px; line-height: 1.4; }
+        .file-link { color: #007bff; text-decoration: underline; cursor: pointer; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h2>PSU Smart Chatbot</h2>
-        <div style="margin-bottom: 10px;">
-            <input id="username" type="text" placeholder="ชื่อของคุณ...">
-        </div>
-        <div id="chat"></div>
+    <div class ='container'>
+    <h2>Group Chat นัวๆ</h2>
+    <div>
+        <input id="username" type="text" placeholder="ชื่อผู้ใช้งาน..." style="width: 200px;">
+    </div>
+    <div id="chat"></div>
         <div class="controls">
-            <input id="message" type="text" placeholder="พิมพ์คำถามที่นี่..." autocomplete="off">
+            <input id="message" type="text" placeholder="พิมพ์ข้อความ...">
+            <input type="file" id="fileInput">
             <button onclick="sendData()">ส่ง</button>
         </div>
     </div>
-
     <script>
         const socket = io();
         const chat = document.getElementById('chat');
 
         socket.on('message', function(data) {
-            const p = document.createElement('div');
-            p.className = 'msg-line';
-            p.innerHTML = `<strong>${data.user}:</strong> ${data.msg}`;
+            const p = document.createElement('p');
+            if (data.type === 'text') {
+                p.innerHTML = `<strong>${data.user}:</strong> ${data.msg}`;
+            } else if (data.type === 'file') {
+                // สร้างลิงก์สำหรับดาวน์โหลดไฟล์
+                const blob = new Blob([data.fileData]);
+                const url = URL.createObjectURL(blob);
+                p.innerHTML = `<strong>${data.user}:</strong> ส่งไฟล์: <a class="file-link" href="${url}" download="${data.fileName}">${data.fileName}</a>`;
+            }
             chat.appendChild(p);
             chat.scrollTop = chat.scrollHeight;
         });
 
         function sendData() {
-            const user = document.getElementById('username').value || "User";
+            const user = document.getElementById('username').value || "Anonymous";
             const msgInput = document.getElementById('message');
+            const fileInput = document.getElementById('fileInput');
 
-            if (msgInput.value.trim() !== "") {
+            // 1. ส่งข้อความ (ถ้ามี)
+            if (msgInput.value) {
                 socket.send({type: 'text', user: user, msg: msgInput.value});
                 msgInput.value = '';
             }
+
+            // 2. ส่งไฟล์ (ถ้ามี)
+            if (fileInput.files.length > 0) {
+                const file = fileInput.files[0];
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    socket.send({
+                        type: 'file',
+                        user: user,
+                        fileName: file.name,
+                        fileData: e.target.result // ข้อมูลไฟล์ในรูป Binary
+                    });
+                };
+                reader.readAsArrayBuffer(file);
+                fileInput.value = ''; // ล้างช่องเลือกไฟล์
+            }
         }
 
-        // กด Enter เพื่อส่ง
-        document.getElementById("message").addEventListener("keypress", function(event) {
+        document.getElementById('message').addEventListener("keypress", function(event) {
             if (event.key === "Enter") {
                 event.preventDefault();
                 sendData();
