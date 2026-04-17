@@ -1,17 +1,87 @@
-from flask import Flask, render_template
-from flask_socketio import SocketIO, send
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Group Chat & File Share</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <style>
+        body { font-family: 'Prompt', sans-serif; padding: 20px; 
+        background-image: url('https://cdn.pixabay.com/photo/2018/09/09/12/51/phuket-3664498_1280.jpg') ; 
+        background-size : cover; background-position: center; background-attachment: fixed; 
+        display: flex; justify-content: center; align-items: center; }
+        #chat { height: 350px; border: 1px solid #ccc; overflow-y: scroll; padding: 15px; margin-bottom: 10px; margin-top: 10px ; background: white; border-radius: 8px; }
+        .container { width: 100%; max-width: 600px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);}
+        .controls { display: flex; gap: 10px; flex-wrap: wrap; }
+        input[type="text"] { padding: 10px; flex: 1; border: 1px solid #ddd; border-radius: 4px; }
+        button { padding: 10px 20px; cursor: pointer; background-color: #007bff; color: white; border: none; border-radius: 4px; }
+        button:hover { background-color: #0056b3; }
+        .file-link { color: #007bff; text-decoration: underline; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class ='container'>
+    <h2>Group Chat นัวๆ</h2>
+    <div>
+        <input id="username" type="text" placeholder="ชื่อผู้ใช้งาน..." style="width: 200px;">
+    </div>
+    <div id="chat"></div>
+        <div class="controls">
+            <input id="message" type="text" placeholder="พิมพ์ข้อความ...">
+            <input type="file" id="fileInput">
+            <button onclick="sendData()">ส่ง</button>
+        </div>
+    </div>
+    <script>
+        const socket = io();
+        const chat = document.getElementById('chat');
 
-app = Flask(__name__)
-app.config['SECRET_KEY'] = 'psu-secret-key'
-socketio = SocketIO(app, cors_allowed_origins="*", max_decode_size=20 * 1024 * 1024)
+        socket.on('message', function(data) {
+            const p = document.createElement('p');
+            if (data.type === 'text') {
+                p.innerHTML = `<strong>${data.user}:</strong> ${data.msg}`;
+            } else if (data.type === 'file') {
+                // สร้างลิงก์สำหรับดาวน์โหลดไฟล์
+                const blob = new Blob([data.fileData]);
+                const url = URL.createObjectURL(blob);
+                p.innerHTML = `<strong>${data.user}:</strong> ส่งไฟล์: <a class="file-link" href="${url}" download="${data.fileName}">${data.fileName}</a>`;
+            }
+            chat.appendChild(p);
+            chat.scrollTop = chat.scrollHeight;
+        });
 
-@app.route('/')
-def index():
-    return render_template('index.html')
+        function sendData() {
+            const user = document.getElementById('username').value || "Anonymous";
+            const msgInput = document.getElementById('message');
+            const fileInput = document.getElementById('fileInput');
 
-@socketio.on('message')
-def handle_message(data):
-    send(data, broadcast=True)
+            // 1. ส่งข้อความ (ถ้ามี)
+            if (msgInput.value) {
+                socket.send({type: 'text', user: user, msg: msgInput.value});
+                msgInput.value = '';
+            }
 
-if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=5000, debug=True)
+            // 2. ส่งไฟล์ (ถ้ามี)
+            if (fileInput.files.length > 0) {
+                const file = fileInput.files[0];
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    socket.send({
+                        type: 'file',
+                        user: user,
+                        fileName: file.name,
+                        fileData: e.target.result // ข้อมูลไฟล์ในรูป Binary
+                    });
+                };
+                reader.readAsArrayBuffer(file);
+                fileInput.value = ''; // ล้างช่องเลือกไฟล์
+            }
+        }
+
+        document.getElementById('message').addEventListener("keypress", function(event) {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                sendData();
+            }
+        });
+    </script>
+</body>
+</html>
