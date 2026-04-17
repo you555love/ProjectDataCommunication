@@ -1,29 +1,32 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>PSU Chat & File Share</title>
+    <title>PSU Smart Chatbot</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Prompt:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500;1,600&display=swap" rel="stylesheet">
     <style>
-        body { font-family: 'Prompt'; padding: 20px; background-color: #f4f4f9; }
-        #chat { height: 350px; border: 1px solid #ccc; overflow-y: scroll; padding: 15px; margin-bottom: 10px; background: white; border-radius: 8px; }
-        .controls { display: flex; gap: 10px; flex-wrap: wrap; }
-        input[type="text"] { padding: 10px; flex: 1; border: 1px solid #ddd; border-radius: 4px; }
-        button { padding: 10px 20px; cursor: pointer; background-color: #007bff; color: white; border: none; border-radius: 4px; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; background-color: #f4f4f9; display: flex; justify-content: center; }
+        .container { width: 100%; max-width: 600px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        #chat { height: 400px; border: 1px solid #eee; overflow-y: scroll; padding: 15px; margin-bottom: 15px; background: #fafafa; border-radius: 8px; }
+        .controls { display: flex; gap: 10px; }
+        input[type="text"] { padding: 12px; border: 1px solid #ddd; border-radius: 6px; outline: none; }
+        #username { width: 120px; }
+        #message { flex: 1; }
+        button { padding: 10px 25px; cursor: pointer; background-color: #007bff; color: white; border: none; border-radius: 6px; font-weight: bold; }
         button:hover { background-color: #0056b3; }
-        .file-link { color: #007bff; text-decoration: underline; cursor: pointer; }
+        .msg-line { margin-bottom: 10px; line-height: 1.4; }
     </style>
 </head>
 <body>
-    <h2>PSU Chat & File Share</h2>
-    <div style="margin-bottom: 10px;">
-        <input id="username" type="text" placeholder="ชื่อผู้ใช้งาน..." style="width: 200px;">
-    </div>
-    <div id="chat"></div>
-    <div class="controls">
-        <input id="message" type="text" placeholder="พิมพ์ข้อความ...">
-        <input type="file" id="fileInput">
-        <button onclick="sendData()">ส่ง</button>
+    <div class="container">
+        <h2>PSU Smart Chatbot</h2>
+        <div style="margin-bottom: 10px;">
+            <input id="username" type="text" placeholder="ชื่อของคุณ...">
+        </div>
+        <div id="chat"></div>
+        <div class="controls">
+            <input id="message" type="text" placeholder="พิมพ์คำถามที่นี่..." autocomplete="off">
+            <button onclick="sendData()">ส่ง</button>
+        </div>
     </div>
 
     <script>
@@ -31,46 +34,30 @@
         const chat = document.getElementById('chat');
 
         socket.on('message', function(data) {
-            const p = document.createElement('p');
-            if (data.type === 'text') {
-                p.innerHTML = `<strong>${data.user}:</strong> ${data.msg}`;
-            } else if (data.type === 'file') {
-                // สร้างลิงก์สำหรับดาวน์โหลดไฟล์
-                const blob = new Blob([data.fileData]);
-                const url = URL.createObjectURL(blob);
-                p.innerHTML = `<strong>${data.user}:</strong> ส่งไฟล์: <a class="file-link" href="${url}" download="${data.fileName}">${data.fileName}</a>`;
-            }
+            const p = document.createElement('div');
+            p.className = 'msg-line';
+            p.innerHTML = `<strong>${data.user}:</strong> ${data.msg}`;
             chat.appendChild(p);
             chat.scrollTop = chat.scrollHeight;
         });
 
         function sendData() {
-            const user = document.getElementById('username').value || "Anonymous";
+            const user = document.getElementById('username').value || "User";
             const msgInput = document.getElementById('message');
-            const fileInput = document.getElementById('fileInput');
 
-            // 1. ส่งข้อความ (ถ้ามี)
-            if (msgInput.value) {
+            if (msgInput.value.trim() !== "") {
                 socket.send({type: 'text', user: user, msg: msgInput.value});
                 msgInput.value = '';
             }
-
-            // 2. ส่งไฟล์ (ถ้ามี)
-            if (fileInput.files.length > 0) {
-                const file = fileInput.files[0];
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    socket.send({
-                        type: 'file',
-                        user: user,
-                        fileName: file.name,
-                        fileData: e.target.result // ข้อมูลไฟล์ในรูป Binary
-                    });
-                };
-                reader.readAsArrayBuffer(file);
-                fileInput.value = ''; 
-            }
         }
+
+        // กด Enter เพื่อส่ง
+        document.getElementById("message").addEventListener("keypress", function(event) {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                sendData();
+            }
+        });
     </script>
 </body>
 </html>
